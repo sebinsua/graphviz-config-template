@@ -24,14 +24,20 @@ function digraph (strs, ...values) {
   return parse(`digraph { ${nodesAndRelationships(strs, values)} }`)
 }
 
-// TODO: Should be able to apply values before OR after, therefore return (values) => parse(...)
-// TODO: Implement the `props => props.value` template style.
+// TODO: Design Tasks
+//   TODO: Should be able to apply values before OR after, therefore return (values) => parse(...)
+//   TODO: Implement the `props => props.value` template style.
+//   TODO: Come up with a sane way of marking some nodes or relationships as optional.
+//   TODO: Should still be parseable by dot.
+//   TODO: Think about how to display inline:
+//         https://atom.io/packages/preview-inline
+//         https://atom.io/packages/inline-markdown-images
+
+
 
 // TODO: Convert graph configuration into Neo4j statements.
 // https://github.com/sebinsua/stream-to-neo4j/blob/master/src/relationship.js
 // https://github.com/sebinsua/stream-to-neo4j/blob/master/src/node.js
-
-// TODO: Come up with a sane way of marking some nodes or relationships as optional.
 
 
 // NOTE: labels on nodes and relationships: http://stackoverflow.com/a/6055235
