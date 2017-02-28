@@ -25,6 +25,7 @@ function digraph (strs, ...values) {
 }
 
 // TODO: Should be able to apply values before OR after, therefore return (values) => parse(...)
+// TODO: Implement the `props => props.value` template style.
 
 // TODO: Convert graph configuration into Neo4j statements.
 // https://github.com/sebinsua/stream-to-neo4j/blob/master/src/relationship.js
