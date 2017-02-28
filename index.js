@@ -10,10 +10,10 @@ function toAttributes (obj) {
 }
 
 const exists = v => !!v
-const zip = (strs, values) => strs.map((str, idx) => [ str, values[idx] ].filter(exists).join(''))
+const zipToString = (strs, values) => strs.map((str, idx) => [ str, values[idx] ].filter(exists).join('')).join('')
 
 function nodesAndRelationships (strs, values) {
-  return zip(strs, values.map(toAttributes)).join('')
+  return zipToString(strs, values.map(toAttributes))
 }
 
 function graph (strs, ...values)  {
