@@ -3,53 +3,157 @@
 const debug = require('debug')('graph-config-template')
 const parse = require('dotparser')
 
+const createNodeStatement = require('./create-node-statement');
+const createRelationshipStatement = require('./create-relationship-statement')
+
 const identity = v => v
 const exists = v => !!v
+const always = v => () => v
+const invokeWith = (...args) => fn => fn(...args)
+const flatten = (arr = []) => arr.reduce((acc, curr) => acc.concat(curr), [])
 
-const DEFAULT_GRAPH_CONFIG = {
-  Node: identity,
-  Relationship: identity
+const arity = fn => fn.length || 0
+function curry (fn) {
+  const len = arity(fn)
+
+  let invokedArgs = []
+  function curriedFn (...args) {
+    invokedArgs = invokedArgs.concat(args)
+    if (invokedArgs.length >= len) {
+      return fn(...invokedArgs)
+    } else {
+      return curriedFn
+    }
+  }
+  curriedFn.displayName = fn.displayName || fn.name || 'AnonymousFunction'
+
+  return curriedFn
 }
 
+const GENERIC_NODE_TYPE = 'Node'
+const GENERIC_RELATIONSHIP_TYPE = 'Relationship'
+const DEFAULT_ID_NAME = 'id'
+
+const using = curry((label, fn) => (props = {}) => fn(props[label]))
+
+const DEFAULT_GRAPH_CONFIG = {
+  [GENERIC_NODE_TYPE]: createNodeStatement,
+  [GENERIC_RELATIONSHIP_TYPE]: createRelationshipStatement
+}
+
+// TODO: also expose this since it is useful on its own.
 function toAttributes (obj) {
   return obj ?
     Object.keys(obj).reduce((acc, curr) => {
+      if (typeof obj[curr] === 'undefined') {
+        throw new Error(`The key '${curr}' could not be found within the values passed in`)
+      }
       acc.push(`${curr}=${obj[curr]}`)
       return acc
     }, []).join(',') :
     null
 }
 
-const zipToString = (strs, values) => strs.map((str, idx) => [ str, values[idx] ].filter(exists).join('')).join('')
+const generateValues = (interpolatedValues = [], values = {}) =>
+  interpolatedValues
+    .map(iv => typeof iv === 'function' ? iv : always(iv))
+    .map(invokeWith(values))
 
-function nodesAndRelationships (strs, values) {
-  return zipToString(strs, values.map(toAttributes))
+const zipToString = (strs, attributes) => {
+  return strs.map((str, idx) => [ str, attributes[idx] ].filter(exists).join('')).join('')
 }
 
-function graphConfig ({ Node, Relationship } = DEFAULT_GRAPH_CONFIG) {
-  // TODO: dot(createNode, create relation)`graph g` can be used to alter node generation implementation etc.
-  // TODO: What about specific nodes or relations though?
-  //       Base it on either the name of the node, or the label, or a fallback to its type.
+function nodesAndRelationships (strs = [], interpolatedValues = [], values = {}) {
+  const attributes = generateValues(interpolatedValues, values).map(toAttributes)
+  return zipToString(strs, attributes)
+}
+
+function createToStatements ({
+  Node: createNode,
+  Relationship: createRelationship
+}) {
+  const isNodeStatement = c => c.type === 'node_stmt'
+  const isRelationshipStatement = c => c.type === 'edge_stmt'
+
+  const toLabel = node => {
+    const labelAttr = (node.attr_list || []).find(attr => attr.id === 'label')
+    if (labelAttr) {
+      return labelAttr.eq
+    } else if (node.node_id.id) {
+      return node.node_id.id
+    }
+
+    return GENERIC_NODE_TYPE
+  }
+  const toIdName = node => {
+    const idNameAttr = (node.attr_list || []).find(attr => attr.id === 'idName')
+    if (idNameAttr) {
+      return idNameAttr.eq
+    }
+    return DEFAULT_ID_NAME
+  }
+  const toProps = (node) =>
+    (node.attr_list || []).reduce((acc, curr) => {
+      if (curr.id !== 'idName') {
+        acc[curr.id] = curr.eq
+      }
+      return acc
+    }, {})
+
+  const toNodeStatement = ns => createNode({ label: toLabel(ns), idName: toIdName(ns), props: toProps(ns) })
+  // TODO: Get out the Node type/label/name, and a fallback type/label/name.
+  // TODO: Get out the Relationship type/label/name, and a fallback type/label/name.
+  return graph => {
+    const statements = []
+
+    const children = graph.children || []
+    const nodes = children.filter(isNodeStatement).map(toNodeStatement)
+    console.log(JSON.stringify(nodes, null, 1))
+    // TODO: create Node: label, props, idName
+
+    // const edges = children.filter(isRelationshipStatement)
+    // console.log(edges[0])
+
+    // TODO: create Relationship:
+    //       left (id, label, idName),
+    //       right (id, label, idName),
+    //       type (attribute of rel),
+    //       direction (directionality of rel)
+
+    return statements
+  }
+}
+
+function graphConfig (options = DEFAULT_GRAPH_CONFIG) {
+  const toStatements = createToStatements(options)
 
   function dot (strs, ...interpolatedValues) {
     return (values) => {
-      return parse(nodesAndRelationships(strs, interpolatedValues))
+      const description = nodesAndRelationships(strs, interpolatedValues, values)
+      debug('created description:', description)
+      return flatten(
+        parse(description).map(toStatements)
+      )
     }
   }
 
   function graph (strs, ...interpolatedValues)  {
     return (values) => {
-      return parse(`graph { ${nodesAndRelationships(strs, interpolatedValues)} }`)
+      const description = `graph { ${nodesAndRelationships(strs, interpolatedValues, values)} }`
+      debug('created description:', description)
+      return flatten(
+        parse(description).map(toStatements)
+      )
     }
   }
 
   function digraph (strs, ...interpolatedValues) {
     return (values) => {
-      // TODO: Add a few debug statements.
-      // TODO: Props function should return object which gets to attributes call on it.
-      // TODO: Transform at end on values.
-      // TODO: How to pass in values object into a props function?
-      return parse(`digraph { ${nodesAndRelationships(strs, interpolatedValues)} }`)
+      const description = `digraph { ${nodesAndRelationships(strs, interpolatedValues, values)} }`
+      debug('created description:', description)
+      return flatten(
+        parse(description).map(toStatements)
+      )
     }
   }
 
@@ -59,13 +163,6 @@ function graphConfig ({ Node, Relationship } = DEFAULT_GRAPH_CONFIG) {
     digraph
   }
 }
-
-// TODO NOW:
-// TODO: Implement the `props => props.value` template style.
-
-// TODO: Convert graph configuration into Neo4j statements.
-// https://github.com/sebinsua/stream-to-neo4j/blob/master/src/relationship.js
-// https://github.com/sebinsua/stream-to-neo4j/blob/master/src/node.js
 
 // NOTE: labels on nodes and relationships: http://stackoverflow.com/a/6055235
 const A_1 = { sides: 3 }
@@ -82,16 +179,32 @@ const { digraph } = graphConfig();
 //       Can props function return a graph for optionality?
 //       Exists predicate function takes in template? Etc
 
-//   TODO: Should still be parseable by dot.
-//   TODO: Think about how to display inline:
-//         https://atom.io/packages/preview-inline
-//         https://atom.io/packages/inline-markdown-images
+// TODO: Should still be parseable by dot.
+// TODO: Think about how to display inline:
+//       https://atom.io/packages/preview-inline
+//       https://atom.io/packages/inline-markdown-images
 
+// TODO: I want to be able to pass in multiple labels.
+
+const typeToLabel = using('C')(props => ({ label: props.type, id: props.id }))
 const out = digraph`
-  A [${A_1}] -> A [${A_2}];
+  A [id=25,${A_1}];
+  B [id=50,${B}]
+  C [idName=id,${typeToLabel}];
+
+  A -> B;
   B -> C;
 `;
-console.log(JSON.stringify(out(), null, 2));
+
+console.log(
+  JSON.stringify(
+    out({
+      C: { type: 'LABEL_OF_C', id: 100 }
+    }),
+    null,
+    2
+  )
+);
 
 // How to represent connections between a node and its self:
 const selfConnected = digraph`
