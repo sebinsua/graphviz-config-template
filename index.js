@@ -100,27 +100,42 @@ function createToStatements ({
       return acc
     }, {})
 
-  const toNodeStatement = ns => createNode({ label: toLabel(ns), idName: toIdName(ns), props: toProps(ns) })
-  // TODO: Get out the Node type/label/name, and a fallback type/label/name.
-  // TODO: Get out the Relationship type/label/name, and a fallback type/label/name.
-  return graph => {
-    const statements = []
+  const toNode = ns => createNode({ label: toLabel(ns), idName: toIdName(ns), props: toProps(ns) })
+  const toRelationships = (nss = []) => rs => {
+    console.log(nss)
+    console.log(rs)
 
-    const children = graph.children || []
-    const nodes = children.filter(isNodeStatement).map(toNodeStatement)
-    console.log(JSON.stringify(nodes, null, 1))
-    // TODO: create Node: label, props, idName
+    // rs.edge_list[*].id is a from left-to-right description marked by the attributes rs.attr_list
+    // This function can result in N > 1 relations depending on the length of rs.edge_list 
 
-    // const edges = children.filter(isRelationshipStatement)
-    // console.log(edges[0])
+    // id for left/right comes from its props
+    // createNodeMatcher should return an { id, label, idName } using the functions above
+
+    // type should come from the relationship label
+
+    // direction should come from the `dir` attribute
 
     // TODO: create Relationship:
     //       left (id, label, idName),
     //       right (id, label, idName),
     //       type (attribute of rel),
     //       direction (directionality of rel)
+    return {} // createRelationship({})
+  }
+  return graph => {
+    const children = graph.children || []
+    const nodeDotStatements = children.filter(isNodeStatement)
+    const relationshipDotStatements = children.filter(isRelationshipStatement)
 
-    return statements
+    const nodeStatements = nodeDotStatements.map(toNode)
+    // console.log(JSON.stringify(nodeStatements, null, 1))
+
+    const edgeStatements = flatten(
+      relationshipDotStatements.map(toRelationships(nodeDotStatements))
+    )
+    console.log(JSON.stringify(edgeStatements, null, 1))
+
+    return [].concat(nodeStatements, edgeStatements)
   }
 }
 
@@ -186,6 +201,8 @@ const { digraph } = graphConfig();
 
 // TODO: I want to be able to pass in multiple labels.
 
+// TODO: I want to clean the attributes of dot only stuff before sending them to neo4j.
+
 const typeToLabel = using('C')(props => ({ label: props.type, id: props.id }))
 const out = digraph`
   A [id=25,${A_1}];
@@ -193,18 +210,22 @@ const out = digraph`
   C [idName=id,${typeToLabel}];
 
   A -> B;
-  B -> C;
+  B -> C -> D;
 `;
 
+const statements = out({
+  C: { type: 'LABEL_OF_C', id: 100 }
+})
+
+/*
 console.log(
   JSON.stringify(
-    out({
-      C: { type: 'LABEL_OF_C', id: 100 }
-    }),
+    statements,
     null,
     2
   )
 );
+*/
 
 // How to represent connections between a node and its self:
 const selfConnected = digraph`
