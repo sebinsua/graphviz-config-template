@@ -194,7 +194,7 @@ const { digraph } = graphConfig();
 //       Can props function return a graph for optionality?
 //       Exists predicate function takes in template? Etc
 
-// TODO: Should still be parseable by dot.
+// TODO: Should still be parseable by dot -- will need to ignore variable interpolation.
 // TODO: Think about how to display inline:
 //       https://atom.io/packages/preview-inline
 //       https://atom.io/packages/inline-markdown-images
