@@ -34,7 +34,11 @@ const GENERIC_NODE_TYPE = 'Node'
 const GENERIC_RELATIONSHIP_TYPE = 'Relationship'
 const DEFAULT_ID_NAME = 'id'
 
-const using = curry((label, fn) => (props = {}) => fn(props[label]))
+const using = curry((label, fn) => {
+  const transform = (props = {}) => fn(props[label])
+  transform.label = label
+  return transform
+})
 
 const DEFAULT_GRAPH_CONFIG = {
   [GENERIC_NODE_TYPE]: createNodeStatement,
@@ -106,7 +110,7 @@ function createToStatements ({
     console.log(rs)
 
     // rs.edge_list[*].id is a from left-to-right description marked by the attributes rs.attr_list
-    // This function can result in N > 1 relations depending on the length of rs.edge_list 
+    // This function can result in N > 1 relations depending on the length of rs.edge_list
 
     // id for left/right comes from its props
     // createNodeMatcher should return an { id, label, idName } using the functions above
