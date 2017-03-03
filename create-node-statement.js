@@ -22,6 +22,10 @@ function createNodeStatement ({
   props = {},
   idName = 'id'
 }) {
+  if (!props[idName]) {
+    throw new Error(`The id field '${idName}' cannot be found within the props of the Node labelled '${label}'.`)
+  }
+
   const remainingProps = Object.assign({}, props);
   delete remainingProps[idName];
 
