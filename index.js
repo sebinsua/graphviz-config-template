@@ -8,8 +8,7 @@ const createRelationshipStatement = require('./create-relationship-statement')
 
 const identity = v => v
 const exists = v => !!v
-const always = v => () => v
-const invokeWith = (...args) => fn => fn(...args)
+const property = (prop, defaultValue) => v => v[prop] || defaultValue
 const flatten = (arr = []) => arr.reduce((acc, curr) => acc.concat(curr), [])
 
 const arity = fn => fn.length || 0
@@ -35,7 +34,7 @@ const GENERIC_RELATIONSHIP_TYPE = 'Relationship'
 const DEFAULT_ID_NAME = 'id'
 
 const using = curry((label, fn) => {
-  const transform = (props = {}) => fn(props[label])
+  const transform = (props = {}) => Array.isArray(props[label]) ? props[label].map(fn) : fn(props[label])
   transform.label = label
   return transform
 })
@@ -45,31 +44,50 @@ const DEFAULT_GRAPH_CONFIG = {
   [GENERIC_RELATIONSHIP_TYPE]: createRelationshipStatement
 }
 
-// TODO: also expose this since it is useful on its own.
 function toAttributes (obj) {
-  return obj ?
-    Object.keys(obj).reduce((acc, curr) => {
+  if (!obj) {
+    return null
+  }
+
+  if (typeof obj === 'string') {
+    if (obj.indexOf('=') === -1) {
+      throw new Error('Strings passed into toAttributes() must contain an equals sign. e.g. idName=id')
+    }
+    return obj
+  } else if (Array.isArray(obj)) {
+    return obj.map(kv => Array.isArray(kv) ? `${kv[0]}=${kv[1]}` : `${kv.key}=${kv.value}`).join(',')
+  } else if (typeof obj === 'object') {
+    return Object.keys(obj).reduce((acc, curr) => {
       if (typeof obj[curr] === 'undefined') {
         throw new Error(`The key '${curr}' could not be found within the values passed in`)
       }
       acc.push(`${curr}=${obj[curr]}`)
       return acc
-    }, []).join(',') :
-    null
+    }, []).join(',')
+  }
 }
-
-const generateValues = (interpolatedValues = [], values = {}) =>
-  interpolatedValues
-    .map(iv => typeof iv === 'function' ? iv : always(iv))
-    .map(invokeWith(values))
 
 const zipToString = (strs, attributes) => {
   return strs.map((str, idx) => [ str, attributes[idx] ].filter(exists).join('')).join('')
 }
 
-function nodesAndRelationships (strs = [], interpolatedValues = [], values = {}) {
-  const attributes = generateValues(interpolatedValues, values).map(toAttributes)
-  return zipToString(strs, attributes)
+const createLabelToFunctionMap = (fns = []) => {
+  const labelToFunctionMap = {}
+
+  fns.forEach(fn => {
+    if (!fn.label) {
+      throw new Error('Functions passed into a graph must be wrapped with using() and given a label.')
+    }
+    labelToFunctionMap[fn.label] = fn
+  })
+
+  return labelToFunctionMap
+}
+
+function createDescription (strs = [], interpolatableValues = []) {
+  const attributes = interpolatableValues.map(toAttributes)
+  const description = zipToString(strs, attributes)
+  return description
 }
 
 function createToStatements ({
@@ -79,6 +97,7 @@ function createToStatements ({
   const isNodeStatement = c => c.type === 'node_stmt'
   const isRelationshipStatement = c => c.type === 'edge_stmt'
 
+  const getNodeName = node => node.node_id.id
   const toLabel = node => {
     const labelAttr = (node.attr_list || []).find(attr => attr.id === 'label')
     if (labelAttr) {
@@ -104,40 +123,110 @@ function createToStatements ({
       return acc
     }, {})
 
-  const toNode = ns => createNode({ label: toLabel(ns), idName: toIdName(ns), props: toProps(ns) })
-  const toRelationships = (nss = []) => rs => {
-    console.log(nss)
-    console.log(rs)
+  return ({ graph, labelToFunctionMap = {}, values = {} }) => {
+    // console.log(JSON.stringify(graph, null, 2))
+    // console.log(labelToFunctionMap)
+    // console.log(values)
 
-    // rs.edge_list[*].id is a from left-to-right description marked by the attributes rs.attr_list
-    // This function can result in N > 1 relations depending on the length of rs.edge_list
-
-    // id for left/right comes from its props
-    // createNodeMatcher should return an { id, label, idName } using the functions above
-
-    // type should come from the relationship label
-
-    // direction should come from the `dir` attribute
-
-    // TODO: create Relationship:
-    //       left (id, label, idName),
-    //       right (id, label, idName),
-    //       type (attribute of rel),
-    //       direction (directionality of rel)
-    return {} // createRelationship({})
-  }
-  return graph => {
     const children = graph.children || []
     const nodeDotStatements = children.filter(isNodeStatement)
     const relationshipDotStatements = children.filter(isRelationshipStatement)
 
-    const nodeStatements = nodeDotStatements.map(toNode)
+    const nodeStatements = flatten(
+      nodeDotStatements.map(ns => {
+        const nodeName = getNodeName(ns)
+        const defaultLabel = toLabel(ns)
+        const idName = toIdName(ns)
+
+        // TODO: rename labelToFunctionMap
+        const transform = labelToFunctionMap[nodeName] || property(nodeName)
+        const transformedValues = transform(values)
+        if (Array.isArray(transformedValues)) {
+          return transformedValues.map(tvs => {
+            const label = tvs.label || defaultLabel
+            return createNode({
+              label,
+              idName,
+              props: Object.assign({}, toProps(ns), tvs)
+            })
+          })
+        } else {
+          const label = (transformedValues || {}).label || defaultLabel
+          if (!transformedValues) {
+            debug(`No node named ${nodeName} could be found within the values object`)
+          }
+          return transformedValues
+            ? createNode({
+              label,
+              idName,
+              props: Object.assign({}, toProps(ns), transformedValues)
+            })
+            : null
+        }
+      }).filter(exists)
+    )
     // console.log(JSON.stringify(nodeStatements, null, 1))
 
     const edgeStatements = flatten(
-      relationshipDotStatements.map(toRelationships(nodeDotStatements))
+      relationshipDotStatements.map(rs => {
+
+        //console.log(rs)
+        const nodes = rs.edge_list.map(e => e.id)
+        // console.log(nodes)
+        const props = toProps(rs)
+        // console.log(props)
+
+        const nodeToProps = nodes.map(nodeName => {
+          const matchingNode = nodeDotStatements.find(nds => nds.node_id.id === nodeName)
+
+          if (matchingNode) {
+            const nodeName = getNodeName(matchingNode)
+            const defaultLabel = toLabel(matchingNode)
+            const idName = toIdName(matchingNode)
+
+            const transform = labelToFunctionMap[nodeName] || property(nodeName)
+            const transformedValues = transform(values)
+
+            const props = toProps(matchingNode)
+
+            return {
+              nodeName,
+              defaultLabel,
+              idName,
+              props: Array.isArray(transformedValues)
+                ? transformedValues.map(tvs => Object.assign({}, props, tvs))
+                : Object.assign({}, props, transformedValues)
+            }
+          }
+
+          debug(`No node named ${nodeName} required by the relationship ${nodes.join(' -> ')} could be found within the values object`)
+          return null
+        }).filter(exists)
+
+        console.log(JSON.stringify(nodeToProps, null, 2))
+        if (nodeToProps.length < 2) {
+          debug(`Found an invalid relationship ${nodes.join(' -> ')} with less than two nodes. This is possibly due to a node not existing within the values object.`)
+          return;
+        }
+
+        // TODO: create relationships with a sliding window of two.
+
+        // TODO: create Relationship:
+        //       left (id, label, idName),
+        //       right (id, label, idName),
+        //       type (attribute of rel),
+        //       direction (directionality of rel)
+        // return {} // createRelationship({})
+        // type should come from the relationship label
+        // direction should come from the `dir` attribute
+        //
+        // TODO: Disable the array relationship support to begin with:
+        //       What does it mean to create a relationship when the does related to it are arrays of nodes?
+        //       nodeToProps.props can be an array now.
+        //       Perhaps: one to many, or many to one okay, but not many to many?
+      })
     )
-    console.log(JSON.stringify(edgeStatements, null, 1))
+    // console.log(JSON.stringify(edgeStatements, null, 1))
 
     return [].concat(nodeStatements, edgeStatements)
   }
@@ -146,34 +235,45 @@ function createToStatements ({
 function graphConfig (options = DEFAULT_GRAPH_CONFIG) {
   const toStatements = createToStatements(options)
 
-  function dot (strs, ...interpolatedValues) {
-    return (values) => {
-      const description = nodesAndRelationships(strs, interpolatedValues, values)
-      debug('created description:', description)
-      return flatten(
-        parse(description).map(toStatements)
-      )
+  const toInterpolatableValuesAndFunctionMap = templateValues => {
+    const labelToFunctionMap = createLabelToFunctionMap(
+      templateValues.filter(v => typeof v === 'function')
+    )
+    const interpolatableValues = templateValues.filter(v => typeof v !== 'function')
+    return {
+      interpolatableValues,
+      labelToFunctionMap
     }
   }
 
-  function graph (strs, ...interpolatedValues)  {
-    return (values) => {
-      const description = `graph { ${nodesAndRelationships(strs, interpolatedValues, values)} }`
-      debug('created description:', description)
-      return flatten(
-        parse(description).map(toStatements)
-      )
-    }
+  const createSave = (strs, interpolatableValues, labelToFunctionMap, createDot = identity) => values => {
+    const description = createDescription(strs, interpolatableValues)
+    const dot = createDot(description)
+    debug('created dot:', dot)
+    return flatten(
+      parse(dot).map(graph => toStatements({ graph, labelToFunctionMap, values }))
+    )
   }
 
-  function digraph (strs, ...interpolatedValues) {
-    return (values) => {
-      const description = `digraph { ${nodesAndRelationships(strs, interpolatedValues, values)} }`
-      debug('created description:', description)
-      return flatten(
-        parse(description).map(toStatements)
-      )
-    }
+  function dot (strs, ...templateValues) {
+    const { interpolatableValues, labelToFunctionMap } = toInterpolatableValuesAndFunctionMap(templateValues)
+    const toDot = identity
+
+    return createSave(strs, interpolatableValues, labelToFunctionMap, toDot)
+  }
+
+  function graph (strs, ...templateValues)  {
+    const { interpolatableValues, labelToFunctionMap } = toInterpolatableValuesAndFunctionMap(templateValues)
+    const toGraph = description => `graph { ${description} }`
+
+    return createSave(strs, interpolatableValues, labelToFunctionMap, toGraph)
+  }
+
+  function digraph (strs, ...templateValues) {
+    const { interpolatableValues, labelToFunctionMap } = toInterpolatableValuesAndFunctionMap(templateValues)
+    const toDigraph = description => `digraph { ${description} }`
+
+    return createSave(strs, interpolatableValues, labelToFunctionMap, toDigraph)
   }
 
   return {
@@ -191,7 +291,7 @@ const C = { sides: 8 }
 
 const { digraph } = graphConfig();
 
-// TODO: Optionality:
+// TODO: Create issue for 'Optionality':
 //       How to optional create nodes or relationships?
 //       Try with subgraphs - can they be passed in?
 //       How to visualise optional node or relationships?
@@ -203,22 +303,36 @@ const { digraph } = graphConfig();
 //       https://atom.io/packages/preview-inline
 //       https://atom.io/packages/inline-markdown-images
 
-// TODO: I want to be able to pass in multiple labels.
-
 // TODO: I want to clean the attributes of dot only stuff before sending them to neo4j.
+// TODO: Learn meaning of each of these, just in case some are relevant.
 
 const typeToLabel = using('C')(props => ({ label: props.type, id: props.id }))
 const out = digraph`
-  A [id=25,${A_1}];
-  B [id=50,${B}]
+  A [idName=aId,${A_1}];
+  B [idName=bId,${B}]
   C [idName=id,${typeToLabel}];
+  D [idName=id,${typeToLabel}];
 
   A -> B;
   B -> C -> D;
 `;
 
+// TODO: Get it to work if the nodes are not within the digraph - instead just relationships.
+// TODO: Get it to work with no directionality (graph mode, etc.)
+
+/*
+TODO: Write some toAttributes tests.
+console.log(toAttributes({ hey: 'there', 'you': 'ok' }))
+console.log(toAttributes('hey=there,you=ok'))
+console.log(toAttributes( [ [ 'hey', 'there' ], [ 'you', 'ok' ] ] ))
+console.log(toAttributes( [ { key: 'hey', value: 'there' }, { key: 'you', value: 'ok' } ] ))
+*/
+
 const statements = out({
-  C: { type: 'LABEL_OF_C', id: 100 }
+  A: { aId: 10 }, // [ { aId: 10 }, { aId: 15 }, { aId: 20 } ],
+  B: { bId: 25 },
+  C: { type: [ 'C', 'LABEL_OF_C' ], id: 100 },
+  D: { type: [ 'D', 'LABEL_OF_D' ], id: 500 }
 })
 
 /*
@@ -232,6 +346,7 @@ console.log(
 */
 
 // How to represent connections between a node and its self:
+/*
 const selfConnected = digraph`
   opinion
 
@@ -240,4 +355,7 @@ const selfConnected = digraph`
 
   fact_1 -> fact_2
 `
+*/
 // TODO: Write usage examples for imaginary implementation.
+
+module.exports.toAttributes = toAttributes;
