@@ -6,33 +6,41 @@ const parse = require('dotparser')
 const createNodeStatement = require('./create-node-statement');
 const createRelationshipStatement = require('./create-relationship-statement')
 
+const {
+  DIRECTION_RIGHT
+} = createRelationshipStatement
+
 const identity = v => v
 const exists = v => !!v
 const property = (prop, defaultValue) => v => v[prop] || defaultValue
 const flatten = (arr = []) => arr.reduce((acc, curr) => acc.concat(curr), [])
 
 const arity = fn => fn.length || 0
-function curry (fn) {
-  const len = arity(fn)
-
-  let invokedArgs = []
+const createCurriedFn = (len, fn, invokedArgs = []) => {
   function curriedFn (...args) {
-    invokedArgs = invokedArgs.concat(args)
-    if (invokedArgs.length >= len) {
-      return fn(...invokedArgs)
+    let currentInvokedArgs = invokedArgs.concat(args)
+    if (currentInvokedArgs.length >= len) {
+      const ret = fn(...currentInvokedArgs)
+      currentInvokedArgs = []
+      return ret
     } else {
-      return curriedFn
+      return createCurriedFn(len, fn, currentInvokedArgs)
     }
   }
   curriedFn.displayName = fn.displayName || fn.name || 'AnonymousFunction'
 
   return curriedFn
 }
+function curry (fn) {
+  const len = arity(fn)
+  return createCurriedFn(len, fn, [])
+}
 
 const GENERIC_NODE_TYPE = 'Node'
 const GENERIC_RELATIONSHIP_TYPE = 'Relationship'
 const DEFAULT_ID_NAME = 'id'
 
+// TODO: label should be renamed to nodeName
 const using = curry((label, fn) => {
   const transform = (props = {}) => Array.isArray(props[label]) ? props[label].map(fn) : fn(props[label])
   transform.label = label
@@ -124,9 +132,6 @@ function createToStatements ({
     }, {})
 
   return ({ graph, labelToFunctionMap = {}, values = {} }) => {
-    // console.log(JSON.stringify(graph, null, 2))
-    // console.log(labelToFunctionMap)
-    // console.log(values)
 
     const children = graph.children || []
     const nodeDotStatements = children.filter(isNodeStatement)
@@ -165,16 +170,12 @@ function createToStatements ({
         }
       }).filter(exists)
     )
-    // console.log(JSON.stringify(nodeStatements, null, 1))
 
     const edgeStatements = flatten(
       relationshipDotStatements.map(rs => {
 
-        //console.log(rs)
         const nodes = rs.edge_list.map(e => e.id)
-        // console.log(nodes)
         const props = toProps(rs)
-        // console.log(props)
 
         const nodeToProps = nodes.map(nodeName => {
           const matchingNode = nodeDotStatements.find(nds => nds.node_id.id === nodeName)
@@ -203,30 +204,44 @@ function createToStatements ({
           return null
         }).filter(exists)
 
-        console.log(JSON.stringify(nodeToProps, null, 2))
         if (nodeToProps.length < 2) {
           debug(`Found an invalid relationship ${nodes.join(' -> ')} with less than two nodes. This is possibly due to a node not existing within the values object.`)
-          return;
+          return
         }
 
-        // TODO: create relationships with a sliding window of two.
+        const relationships = [];
+        for (let i = 0; i < nodeToProps.length; i++) {
+          const left = nodeToProps[i]
+          const right = nodeToProps[i + 1]
+          if (!left || !right) {
+            break
+          }
 
-        // TODO: create Relationship:
-        //       left (id, label, idName),
-        //       right (id, label, idName),
-        //       type (attribute of rel),
-        //       direction (directionality of rel)
-        // return {} // createRelationship({})
-        // type should come from the relationship label
-        // direction should come from the `dir` attribute
-        //
+          relationships.push(
+            createRelationship({
+              left: {
+                id: left.props[left.idName],
+                label: left.props.label || left.defaultLabel,
+                idName: left.idName
+              },
+              right: {
+                id: right.props[right.idName],
+                label: right.props.label || right.defaultLabel,
+                idName: right.idName
+              },
+              type: 'CONNECTED_TO', // TODO: Swap this for a real rs.type.
+              direction: DIRECTION_RIGHT
+            })
+          )
+        }
+
         // TODO: Disable the array relationship support to begin with:
         //       What does it mean to create a relationship when the does related to it are arrays of nodes?
         //       nodeToProps.props can be an array now.
         //       Perhaps: one to many, or many to one okay, but not many to many?
+        return relationships
       })
     )
-    // console.log(JSON.stringify(edgeStatements, null, 1))
 
     return [].concat(nodeStatements, edgeStatements)
   }
@@ -306,19 +321,19 @@ const { digraph } = graphConfig();
 // TODO: I want to clean the attributes of dot only stuff before sending them to neo4j.
 // TODO: Learn meaning of each of these, just in case some are relevant.
 
-const typeToLabel = using('C')(props => ({ label: props.type, id: props.id }))
+const typeToLabel = props => ({ label: props.type, id: props.id })
 const out = digraph`
   A [idName=aId,${A_1}];
   B [idName=bId,${B}]
-  C [idName=id,${typeToLabel}];
-  D [idName=id,${typeToLabel}];
+  C [idName=id,${using('C')(typeToLabel)}];
+  D [idName=id,${using('D')(typeToLabel)}];
 
   A -> B;
   B -> C -> D;
 `;
 
 // TODO: Get it to work if the nodes are not within the digraph - instead just relationships.
-// TODO: Get it to work with no directionality (graph mode, etc.)
+// TODO: Get it to work with no directionality (graph mode, etc.) And specific directionality.
 
 /*
 TODO: Write some toAttributes tests.
@@ -335,7 +350,6 @@ const statements = out({
   D: { type: [ 'D', 'LABEL_OF_D' ], id: 500 }
 })
 
-/*
 console.log(
   JSON.stringify(
     statements,
@@ -343,7 +357,6 @@ console.log(
     2
   )
 );
-*/
 
 // How to represent connections between a node and its self:
 /*
