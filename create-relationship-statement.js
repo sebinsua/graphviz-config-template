@@ -4,6 +4,8 @@ const DIRECTION_LEFT = 'DIRECTION_LEFT';
 const DIRECTION_RIGHT = 'DIRECTION_RIGHT';
 const DIRECTION_NONE = 'DIRECTION_NONE';
 
+const stripWhitespace = str => str.trim().replace(/\s+/g, ' ')
+
 function createRelationshipStatement ({
   left,
   right,
@@ -32,12 +34,12 @@ function createRelationshipStatement ({
   const leftParamName = `${leftNodeName}_${leftIdName}`;
   const rightParamName = `${rightNodeName}_${rightIdName}`;
   return {
-    statement: `
+    statement: stripWhitespace(`
       MATCH
         ${matchNode(leftNodeName, left.label, leftIdName, leftParamName)},
         ${matchNode(rightNodeName, right.label, rightIdName, rightParamName)}
       MERGE (${leftNodeName})${getRelationship(type, direction)}(${rightNodeName})
-    `,
+    `),
     parameters: {
       [leftParamName]: left.id,
       [rightParamName]: right.id
