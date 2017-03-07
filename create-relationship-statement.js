@@ -4,6 +4,7 @@ const DIRECTION_LEFT = 'DIRECTION_LEFT';
 const DIRECTION_RIGHT = 'DIRECTION_RIGHT';
 const DIRECTION_NONE = 'DIRECTION_NONE';
 
+// TODO: This code should be shared with the other project.
 const stripWhitespace = str => str.trim().replace(/\s+/g, ' ')
 
 function createRelationshipStatement ({
