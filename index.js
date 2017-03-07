@@ -298,6 +298,18 @@ function graphConfig (options = DEFAULT_GRAPH_CONFIG) {
   }
 }
 
+// TODO: Fix problem in which no node statements are created for nodes only in relationships.
+//       Nodes in relationships should not be created if missing data but no error.
+//       Get it to work if the nodes are not within the digraph - instead just relationships.
+// TODO: Describe problem of One to many to many
+//       And potential solution: Use relationship attributes
+//       But don't do it.
+// TODO: Refactor until code is clean
+// TODO: Add more debugs and docs.
+// TODO: Pull errors to edges.
+// TODO: I want to clean the attributes of dot only stuff before sending them to neo4j.
+//       Learn meaning of each of these, just in case some are relevant.
+
 // NOTE: labels on nodes and relationships: http://stackoverflow.com/a/6055235
 const A_1 = { sides: 3 }
 const A_2 = { sides: 5 }
@@ -305,6 +317,8 @@ const B = { sides: 5 }
 const C = { sides: 8 }
 
 const { digraph } = graphConfig();
+
+// TODO: Get it to work with no directionality (graph mode, etc.) And specific directionality.
 
 // TODO: Create issue for 'Optionality':
 //       How to optional create nodes or relationships?
@@ -318,9 +332,6 @@ const { digraph } = graphConfig();
 //       https://atom.io/packages/preview-inline
 //       https://atom.io/packages/inline-markdown-images
 
-// TODO: I want to clean the attributes of dot only stuff before sending them to neo4j.
-// TODO: Learn meaning of each of these, just in case some are relevant.
-
 const typeToLabel = props => ({ label: props.type, id: props.id })
 const out = digraph`
   A [idName=aId,${A_1}];
@@ -331,9 +342,6 @@ const out = digraph`
   A -> B;
   B -> C -> D;
 `;
-
-// TODO: Get it to work if the nodes are not within the digraph - instead just relationships.
-// TODO: Get it to work with no directionality (graph mode, etc.) And specific directionality.
 
 /*
 TODO: Write some toAttributes tests.
