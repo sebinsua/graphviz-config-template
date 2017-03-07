@@ -1,6 +1,8 @@
 # `graphviz-config-template`
 > Templates as visual graph configuration.
 
+**NOTE:** This is not finished, tested or published yet.
+
 ## Example
 
 ### ![Farm](./preview/farm.png)
