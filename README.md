@@ -27,5 +27,5 @@ transaction.commit()
 ## Install
 
 ```sh
-yarn add graph-config-template
+yarn add graphviz-config-template
 ```
