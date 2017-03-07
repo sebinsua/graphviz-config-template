@@ -1,4 +1,4 @@
-# `graph-config-template`
+# `graphviz-config-template`
 > Templates as visual graph configuration.
 
 ## Example
@@ -6,7 +6,7 @@
 ### ![Farm](./preview/farm.png)
 
 ```js
-const graphConfig = require('graph-config-template')
+const graphConfig = require('graphviz-config-template')
 const createCypherStream = require('cypher-stream')
 
 const { digraph } = graphConfig();
