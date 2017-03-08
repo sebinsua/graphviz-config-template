@@ -1,6 +1,53 @@
 {
+  "name": "graphviz-config-template",
+  "description": "Templates as visual graph configuration.",
+  "version": "0.0.1",
+  "main": "src/index.js",
+  "scripts": {
+    "commitmsg": "validate-commit-msg",
+    "precommit": "npm run -s format",
+    "prepush": "npm run -s test",
+    "push": "git push --follow-tags origin master",
+    "format": "prettier-standard-formatter src/**/*.js test/**/*.js",
+    "test": "ava",
+    "release": "npm run -s test && standard-version && npm publish"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sebinsua/graphviz-config-template.git"
+  },
+  "keywords": [
+    "graphviz",
+    "dot",
+    "template",
+    "string",
+    "database",
+    "neo4j",
+    "graphs",
+    "node",
+    "relationship",
+    "edge",
+    "vertex",
+    "visual"
+  ],
+  "author": "Seb Insua <me@sebinsua.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/sebinsua/graphviz-config-template/issues"
+  },
+  "homepage": "https://github.com/sebinsua/graphviz-config-template#readme",
+  "engines": {
+    "node": "^6"
+  },
   "dependencies": {
     "debug": "^2.6.1",
     "dotparser": "^0.1.3"
+  },
+  "devDependencies": {
+    "ava": "^0.18.2",
+    "husky": "^0.13.2",
+    "prettier-standard-formatter": "^0.222222222222222.333333333333333",
+    "standard-version": "^4.0.0",
+    "validate-commit-msg": "^2.11.2"
   }
 }
