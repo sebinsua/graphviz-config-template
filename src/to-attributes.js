@@ -1,6 +1,6 @@
 function toAttributes (obj) {
   if (!obj) {
-    return null
+    return ''
   }
 
   if (typeof obj === 'string') {
