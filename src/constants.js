@@ -2,7 +2,7 @@ const {
   DIRECTION_NONE,
   DIRECTION_LEFT,
   DIRECTION_RIGHT
-} = require('./create-relationship-statement')
+} = require('./neo4j/create-relationship-statement')
 
 const UNDIRECTED_GRAPH = 'graph'
 const DIRECTED_GRAPH = 'digraph'

@@ -1,3 +1,5 @@
+const cleanProperties = require('./clean-properties')
+
 const { matchNode } = require('./create-node-statement')
 
 const DIRECTION_LEFT = 'DIRECTION_LEFT'
@@ -11,18 +13,17 @@ function createRelationshipStatement (
     left,
     right,
     type,
-    direction = DIRECTION_NONE
+    direction = DIRECTION_NONE,
+    relationshipProps = {}
   }
 ) {
-  const getRelationship = (_type, _direction) => {
-    const baseRelationship = `-[r${_type ? `:${_type}` : ''}]-`
+  const getRelationship = (_relationshipName, _type, _direction) => {
+    const baseRelationship = `-[${_relationshipName}${_type ? `:${_type}` : ''}]-`
     switch (_direction) {
       case DIRECTION_LEFT:
         return `<${baseRelationship}`
-        break
       case DIRECTION_RIGHT:
         return `${baseRelationship}>`
-        break
       default:
       case DIRECTION_NONE:
         return baseRelationship
@@ -31,6 +32,7 @@ function createRelationshipStatement (
 
   const leftNodeName = 'left'
   const rightNodeName = 'right'
+  const relationshipName = 'r'
   const leftIdName = left.idName || 'id'
   const rightIdName = right.idName || 'id'
   const leftParamName = `${leftNodeName}_${leftIdName}`
@@ -41,12 +43,14 @@ function createRelationshipStatement (
       MATCH
         ${matchNode(leftNodeName, left.label, leftIdName, leftParamName)},
         ${matchNode(rightNodeName, right.label, rightIdName, rightParamName)}
-      MERGE (${leftNodeName})${getRelationship(type, direction)}(${rightNodeName})
+      MERGE (${leftNodeName})${getRelationship(relationshipName, type, direction)}(${rightNodeName})
+      SET ${relationshipName} += $relationshipProps
     `
     ),
     parameters: {
       [leftParamName]: left.id,
-      [rightParamName]: right.id
+      [rightParamName]: right.id,
+      relationshipProps: cleanProperties(relationshipProps)
     }
   }
 }

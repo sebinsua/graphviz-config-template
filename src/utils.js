@@ -32,11 +32,14 @@ const zipToString = (strs, attributes) => {
     .join('')
 }
 
+const arrify = (...args) => [].concat(...args)
+
 module.exports = {
   identity,
   exists,
   property,
   flatten,
   curry,
-  zipToString
+  zipToString,
+  arrify
 }
