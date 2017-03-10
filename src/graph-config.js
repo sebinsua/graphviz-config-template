@@ -86,6 +86,7 @@ function graphConfig (toStatements = identity) {
   }
 
   return {
+    graphviz: dot,
     dot,
     graph,
     digraph
