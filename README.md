@@ -5,7 +5,9 @@
 
 Describe the configuration of your graph using the [`dot`](https://en.wikipedia.org/wiki/DOT_(graph_description_language)) graph description language and get a `save` function in return that'll generate [Neo4j](https://neo4j.com/) Cypher queries when given some data.
 
-The purpose of this is to experiment with visualising small DSLs within the IDE.
+The purpose of this is to experiment with visualising small [DSL](https://en.wikipedia.org/wiki/Domain-specific_language)s within the [IDE](https://en.wikipedia.org/wiki/Integrated_development_environment).
+
+A companion atom plugin [`atom-graphviz-config-template`](https://github.com/sebinsua/atom-graphviz-config-template) is [in development](https://github.com/sebinsua/graphviz-config-template/issues/1).
 
 ## Example
 
