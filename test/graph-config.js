@@ -5,9 +5,6 @@ const { using } = graphConfig
 
 const { digraph, graph } = graphConfig()
 
-// TODO: Write usage examples for imaginary implementation.
-// TODO: Test edge-cases.
-
 test('can represent simple graph', t => {
   const save = graph`
     A -> B [label="LIKES"];

@@ -99,7 +99,7 @@ function createToStatements (
               return createNode({
                 label,
                 idName,
-                props: Object.assign({}, toProps(ns), tvs)
+                props: Object.assign({}, tvs)
               })
             })
           } else {
@@ -113,7 +113,7 @@ function createToStatements (
               ? createNode({
                 label,
                 idName,
-                props: Object.assign({}, toProps(ns), transformedValues)
+                props: Object.assign({}, transformedValues)
               })
               : null
           }
@@ -192,7 +192,6 @@ function createToStatements (
               const nodeName = getNodeName(matchingNode)
               const defaultLabel = toLabel(matchingNode)
               const idName = toIdName(matchingNode)
-              const props = toProps(matchingNode)
 
               const transform = nameToFunctionMap[nodeName] ||
                 property(nodeName)
@@ -215,8 +214,8 @@ function createToStatements (
                 defaultLabel,
                 idName,
                 props: Array.isArray(transformedValues)
-                  ? transformedValues.map(tvs => Object.assign({}, props, tvs))
-                  : Object.assign({}, props, transformedValues)
+                  ? transformedValues.map(tvs => Object.assign({}, tvs))
+                  : Object.assign({}, transformedValues)
               }
             } else {
               const nodeName = name
