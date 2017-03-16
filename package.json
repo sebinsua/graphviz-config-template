@@ -1,7 +1,7 @@
 {
   "name": "graphviz-config-template",
   "description": "Templates as visual graph configuration.",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "main": "src/index.js",
   "scripts": {
     "commitmsg": "validate-commit-msg",
