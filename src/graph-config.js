@@ -5,6 +5,9 @@ const { UnacceptableTemplateFunctionError } = require('./errors')
 const toAttributes = require('./to-attributes')
 const { flatten, identity, zipToString } = require('./utils')
 
+const isFunction = v => typeof v === 'function'
+const isNotFunction = v => typeof v !== 'function'
+
 const createNameToFunctionMap = (fns = []) => {
   const nameToFunctionMap = {}
 
@@ -17,6 +20,7 @@ const createNameToFunctionMap = (fns = []) => {
     nameToFunctionMap[fn._name] = fn
   })
 
+  debug('exposing a fns to transform namespaced props with:', Object.keys(nameToFunctionMap))
   return nameToFunctionMap
 }
 
@@ -29,11 +33,10 @@ function createDescription (strs = [], interpolatableValues = []) {
 function graphConfig (toStatements = identity) {
   const toInterpolatableValuesAndFunctionMap = templateValues => {
     const nameToFunctionMap = createNameToFunctionMap(
-      templateValues.filter(v => typeof v === 'function')
+      templateValues.filter(isFunction)
     )
-    const interpolatableValues = templateValues.filter(
-      v => typeof v !== 'function'
-    )
+    const interpolatableValues = templateValues.filter(isNotFunction)
+
     return {
       interpolatableValues,
       nameToFunctionMap
@@ -44,12 +47,12 @@ function graphConfig (toStatements = identity) {
     strs,
     interpolatableValues,
     nameToFunctionMap,
-    createDot = identity
+    wrapToDot = identity
   ) =>
     values => {
       const description = createDescription(strs, interpolatableValues)
-      const dot = createDot(description)
-      debug('created dot:', dot)
+      const dot = wrapToDot(description)
+      debug('created underlying dot:', dot)
       return flatten(
         parse(dot).map(graph =>
           toStatements({ graph, nameToFunctionMap, values }))
@@ -61,9 +64,10 @@ function graphConfig (toStatements = identity) {
       interpolatableValues,
       nameToFunctionMap
     } = toInterpolatableValuesAndFunctionMap(templateValues)
-    const toDot = identity
+    const wrapToDot = identity
 
-    return createSave(strs, interpolatableValues, nameToFunctionMap, toDot)
+    debug('creating dot template')
+    return createSave(strs, interpolatableValues, nameToFunctionMap, wrapToDot)
   }
 
   function graph (strs, ...templateValues) {
@@ -71,9 +75,10 @@ function graphConfig (toStatements = identity) {
       interpolatableValues,
       nameToFunctionMap
     } = toInterpolatableValuesAndFunctionMap(templateValues)
-    const toGraph = description => `graph { ${description} }`
+    const wrapToGraph = description => `graph { ${description} }`
 
-    return createSave(strs, interpolatableValues, nameToFunctionMap, toGraph)
+    debug('creating graph template')
+    return createSave(strs, interpolatableValues, nameToFunctionMap, wrapToGraph)
   }
 
   function digraph (strs, ...templateValues) {
@@ -81,9 +86,10 @@ function graphConfig (toStatements = identity) {
       interpolatableValues,
       nameToFunctionMap
     } = toInterpolatableValuesAndFunctionMap(templateValues)
-    const toDigraph = description => `digraph { ${description} }`
+    const wrapToDigraph = description => `digraph { ${description} }`
 
-    return createSave(strs, interpolatableValues, nameToFunctionMap, toDigraph)
+    debug('creating digraph template')
+    return createSave(strs, interpolatableValues, nameToFunctionMap, wrapToDigraph)
   }
 
   return {

@@ -96,6 +96,10 @@ function createToStatements (
           const transform = nameToFunctionMap[nodeName] || property(nodeName)
           const transformedValues = transform(values)
           if (Array.isArray(transformedValues)) {
+            debug(
+              `${nodeName}${defaultLabel ? ` (${defaultLabel})` : ''} was given an array`
+            )
+
             return transformedValues.map(tvs => {
               const label = tvs.label || defaultLabel
               return createNode({
@@ -105,24 +109,29 @@ function createToStatements (
               })
             })
           } else {
-            const label = (transformedValues || {}).label || defaultLabel
             if (!transformedValues) {
               debug(
                 `No node named ${nodeName} could be found within the values object`
               )
+              return null
             }
-            return transformedValues
-              ? createNode({
-                label,
-                idName,
-                props: Object.assign({}, transformedValues)
-              })
-              : null
+            const label = (transformedValues || {}).label || defaultLabel
+
+            debug(
+              `${nodeName}${label ? ` (${label})` : ''} was given a single value`
+            )
+
+            return createNode({
+              label,
+              idName,
+              props: Object.assign({}, transformedValues)
+            })
           }
         })
         .filter(exists)
     )
 
+    // Get the Set of nodes that only appear within the relationships.
     const setOfEdgeNodesNotSeen = new Set(
       flatten(
         relationshipDotStatements
@@ -149,6 +158,10 @@ function createToStatements (
           const transform = nameToFunctionMap[nodeName] || property(nodeName)
           const transformedValues = transform(values)
           if (Array.isArray(transformedValues)) {
+            debug(
+              `${nodeName}${defaultLabel ? ` (${defaultLabel})` : ''} was given an array`
+            )
+
             return transformedValues.map(tvs => {
               const label = tvs.label || defaultLabel
               return createNode({
@@ -158,19 +171,24 @@ function createToStatements (
               })
             })
           } else {
-            const label = (transformedValues || {}).label || defaultLabel
             if (!transformedValues) {
               debug(
                 `No node named ${nodeName} could be found within the values object`
               )
+              return null
             }
-            return transformedValues
-              ? createNode({
-                label,
-                idName,
-                props: transformedValues
-              })
-              : null
+
+            const label = (transformedValues || {}).label || defaultLabel
+
+            debug(
+              `${nodeName}${label ? ` (${label})` : ''} was given a single value`
+            )
+
+            return createNode({
+              label,
+              idName,
+              props: transformedValues
+            })
           }
         })
         .filter(exists)
@@ -191,6 +209,9 @@ function createToStatements (
             )
 
             if (matchingNode) {
+              debug(
+                'The node within the relationship has been defined so we get its details'
+              )
               const nodeName = getNodeName(matchingNode)
               const defaultLabel = toLabel(matchingNode)
               const idName = toIdName(matchingNode)
@@ -199,14 +220,13 @@ function createToStatements (
                 property(nodeName)
               const transformedValues = transform(values)
 
-              if (
-                !transformedValues ||
+              const hasNoNodeValues = !transformedValues ||
                 (Array.isArray(transformedValues) &&
                   transformedValues.length === 0)
-              ) {
+              if (hasNoNodeValues) {
                 debug(
                   `No node named ${nodeName} required by the relationship ${nodes.join(' -> ')}
-                   could  be found within the values object`
+                   could be found within the values object`
                 )
                 return null
               }
@@ -220,6 +240,9 @@ function createToStatements (
                   : Object.assign({}, transformedValues)
               }
             } else {
+              debug(
+                'The node within the relationship has not been defined so we fallback'
+              )
               const nodeName = name
               const defaultLabel = name || GENERIC_NODE_TYPE
               const idName = DEFAULT_ID_NAME
@@ -229,14 +252,13 @@ function createToStatements (
                 property(nodeName)
               const transformedValues = transform(values)
 
-              if (
-                !transformedValues ||
+              const hasNoNodeValues = !transformedValues ||
                 (Array.isArray(transformedValues) &&
                   transformedValues.length === 0)
-              ) {
+              if (hasNoNodeValues) {
                 debug(
                   `No node named ${nodeName} required by the relationship ${nodes.join(' -> ')}
-                   could  be found within the values object`
+                   could be found within the values object`
                 )
                 return null
               }
@@ -279,6 +301,9 @@ function createToStatements (
                multiple nodes (left: ${leftCount}, right: ${rightCount}).`
             )
           } else if (rightCount > 1) {
+            debug(
+              `The relationship (${nodes.join(' -> ')}) has a one-to-many relationship.`
+            )
             const oneToManyRelationships = right.props.map(
               rightProp => createRelationship({
                 left: {
@@ -298,6 +323,9 @@ function createToStatements (
             )
             oneToManyRelationships.forEach(rel => relationships.push(rel))
           } else if (leftCount > 1) {
+            debug(
+              `The relationship (${nodes.join(' -> ')}) has a many-to-one relationship.`
+            )
             const manyToOneRelationships = left.props.map(
               leftProp => createRelationship({
                 left: {
@@ -317,6 +345,9 @@ function createToStatements (
             )
             manyToOneRelationships.forEach(rel => relationships.push(rel))
           } else if (leftCount === 1 && rightCount === 1) {
+            debug(
+              `The relationship (${nodes.join(' -> ')}) has a one-to-one relationship.`
+            )
             relationships.push(
               createRelationship({
                 left: {
@@ -341,6 +372,9 @@ function createToStatements (
       })
     )
 
+    debug(
+      'combine the statements for nodes, nodes found only within edges, and edges'
+    )
     return wrap(nodeStatements, nodesFromEdgesStatements, edgeStatements)
   }
 }
