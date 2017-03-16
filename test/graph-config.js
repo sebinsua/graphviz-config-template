@@ -24,7 +24,7 @@ test('can represent complex graph (1-to-m, transformations)', t => {
   const A_1 = { sides: 3 }
   const B = { sides: 5 }
 
-  const typeToLabel = props => ({ label: props.type, id: props.id })
+  const typeToLabel = props => ({ label: props.type, id: props.name })
   const save = digraph`
   A [idName=aId,${A_1}];
   B [idName=bId,${B}]
@@ -38,8 +38,8 @@ test('can represent complex graph (1-to-m, transformations)', t => {
   const statements = save({
     A: { aId: 10, body: 'body text' }, // [ { aId: 10 }, { aId: 15 }, { aId: 20 } ],
     B: [{ bId: 25 }, { bId: 30 }, { bId: 35 }, { bId: 40 }, { bId: 45 }],
-    C: { type: ['C', 'LABEL_OF_C'], id: 100 },
-    D: { type: ['D', 'LABEL_OF_D'], id: 500 }
+    C: { type: ['C', 'LABEL_OF_C'], name: 'Joe' },
+    D: { type: ['D', 'LABEL_OF_D'], name: 'America' }
   })
 
   t.snapshot(statements)

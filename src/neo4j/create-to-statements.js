@@ -45,7 +45,7 @@ const toProps = entity => (entity.attr_list || []).reduce(
 )
 const toType = relationship => {
   const typeAttr = (relationship.attr_list || []).find(
-    attr => attr.id === 'label'
+    attr => attr.id === 'label' || attr.id === 'type'
   )
   if (typeAttr && typeAttr.eq) {
     return typeAttr.eq
