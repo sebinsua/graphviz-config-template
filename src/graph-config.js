@@ -1,6 +1,7 @@
 const debug = require('debug')('graph-config-template')
 const parse = require('dotparser')
 
+const { UnacceptableTemplateFunctionError } = require('./errors')
 const toAttributes = require('./to-attributes')
 const { flatten, identity, zipToString } = require('./utils')
 
@@ -9,7 +10,7 @@ const createNameToFunctionMap = (fns = []) => {
 
   fns.forEach(fn => {
     if (!fn._name) {
-      throw new Error(
+      throw new UnacceptableTemplateFunctionError(
         'Functions passed into a graph must be wrapped with using() and given a name.'
       )
     }

@@ -1,5 +1,7 @@
 const debug = require('debug')('graph-config-template:neo4j')
 
+const { PoorlyDefinedRelationshipError } = require('../errors')
+
 const { flatten, exists, property } = require('../utils')
 const {
   DEFAULT_ID_NAME,
@@ -272,7 +274,7 @@ function createToStatements (
           // many-to-many (which will most likely require relationship attributes informing the edge creation)
           // so therefore we will throw an error if this is the case.
           if (leftCount > 1 && rightCount > 1) {
-            throw new Error(
+            throw new PoorlyDefinedRelationshipError(
               `Both left and the right relationships of ${nodes.join(' -> ')} are to
                multiple nodes (left: ${leftCount}, right: ${rightCount}).`
             )

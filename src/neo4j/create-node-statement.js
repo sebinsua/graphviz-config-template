@@ -1,5 +1,7 @@
 const cleanProperties = require('./clean-properties')
 
+const { MissingIdError } = require('../errors')
+
 const matchNode = (node, label, idName, paramName) => {
   paramName = paramName || idName
   const labels = label
@@ -16,7 +18,7 @@ function createNodeStatement (
   }
 ) {
   if (!props[idName]) {
-    throw new Error(
+    throw new MissingIdError(
       `The id field '${idName}' cannot be found within the props of the Node labelled '${label}'.`
     )
   }

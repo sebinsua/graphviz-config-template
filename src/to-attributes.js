@@ -1,3 +1,5 @@
+const { InvalidAttributesDefinitionError } = require('./errors')
+
 function toAttributes (obj) {
   if (!obj) {
     return ''
@@ -5,7 +7,7 @@ function toAttributes (obj) {
 
   if (typeof obj === 'string') {
     if (obj.indexOf('=') === -1) {
-      throw new Error(
+      throw new InvalidAttributesDefinitionError(
         'Strings passed into toAttributes() must contain an equals sign. e.g. idName=id'
       )
     }
@@ -21,7 +23,7 @@ function toAttributes (obj) {
       .reduce(
         (acc, curr) => {
           if (typeof obj[curr] === 'undefined') {
-            throw new Error(
+            throw new InvalidAttributesDefinitionError(
               `The key '${curr}' could not be found within the values passed in`
             )
           }
