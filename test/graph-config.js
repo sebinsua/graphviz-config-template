@@ -79,3 +79,27 @@ test('can represent nodes connected to themselves', t => {
 
   t.snapshot(statements)
 })
+
+test('can represent some *real* database', t => {
+  const save = digraph`
+    parent_account [label="User"]
+    child_account [label="User"]
+
+    parent_tweet [label="Tweet"]
+    child_tweet [label="Tweet"]
+
+    parent_account -> parent_tweet [label="TWEETED"]
+    child_account -> child_tweet [label="TWEETED"]
+
+    child_tweet -> parent_tweet [label="REPLIED_TO"]
+  `
+
+  const statements = save({
+    parent_account: { id: 987654321, name: 'Soul' },
+    child_account: { id: 1, name: 'Creator' },
+    parent_tweet: { id: 1000, message: 'Why would I do this though?' },
+    child_tweet: { id: 2000, message: 'This is a bad example. I am sorry.' }
+  })
+
+  t.snapshot(statements)
+})
